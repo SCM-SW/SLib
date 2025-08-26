@@ -1,12 +1,12 @@
 -- Made by ScientistM!          
 
-local SLib = {StringLib = {} , MathLib = {}, LCharLib = {}, DecompLib = {DecompFT = {}, ExpDecomp = decompile}, Roplayers = {}, BlankFunc = function() end, RoserviceUseClassN = true, ExpN = identifyexecutor ~= nil and identifyexecutor(), Romodules = {{`Base64.luau`, `https://raw.githubusercontent.com/legitimate0x3/SLib/refs/heads/main/Base64.luau`}, {`HashLib.luau`, `https://raw.githubusercontent.com/legitimate0x3/SLib/refs/heads/main/HashLib.luau`}}, ManualGPlugins = true}
+local SLib = {StringLib = {} , MathLib = {}, LCharLib = {}, DecompLib = {DecompFT = {}, ExpDecomp = decompile}, Roplayers = {}, BlankFunc = function() end, RoserviceUseClassN = true, ExpN = identifyexecutor ~= nil and identifyexecutor(), Romodules = {{`Base64.luau`, `https://raw.githubusercontent.com/SCM-SW/SLib/refs/heads/main/Base64.luau`}, {`HashLib.luau`, `https://raw.githubusercontent.com/SCM-SW/SLib/refs/heads/main/HashLib.luau`}}, ManualGPlugins = true}
 local RospfTbl = {ScreenGUIs = {}, Roinstances = {}}
 local OnRoplayerJLFLT = {OnRoplayerAdded = {}, OnRoplayerRemoving = {}}
-local Cloneref = cloneref or SLib.BlankFunc
+local Cloneref = cloneref or function(...) return ... end
 local GeneratedGUIs = {}
 local GeneratedGUIsET = {}
-  
+
 SLib.StringLib.RemoveFromStr = function(Val, ValB) 
 	return string.gsub(Val, ValB, ``)
 end
@@ -101,7 +101,7 @@ SLib.LCharLib.LocalHumanoidRigType = function()
 	if LocalHumanoid ~= nil then
 		return LocalHumanoid.RigType
 	end
-	
+
 	return `Humanoid is not found!`
 end
 
@@ -282,10 +282,10 @@ end
 SLib.GenerateGUI = function(SpfGUI)
 	local GeneratedGUI = Instance.new(`ScreenGui`)
 	GeneratedGUIs[GeneratedGUI] = true
-	
+
 	return Instance.new(`ScreenGui`)
 end
- 
+
 SLib.NObj = function(ObjClassN, SpfObj)
 	if ObjClassN == `ScreenGui` then
 		return `There is GenerateGUI for ScreenGUIs!`
@@ -506,7 +506,7 @@ SLib.GModule = function(Val)
 
 	return GModule
 end
-
+ 
 SLib.OnRoplayerAdded = function(...)
 	for Index, Val in pairs({...}) do  
 		if type(Val) == `function` then 
@@ -522,7 +522,7 @@ SLib.OnRoplayerRemoving = function(...)
 		end   
 	end
 end 
-
+ 
 SLib.GameSpeficNilInstances = function(GNilInstanceN, GNilInstanceClassN)
 	local GNilInstances = {}
 
@@ -553,13 +553,13 @@ end
 
 SLib.GPlayerArgList.Arg_others = function() 
 	local GPlayers = {}
-	
+
 	for Index, Val in pairs(SLib.Roplayers) do 
 		if Val.UserId ~= SLib.LocalPlayer.UserId then
 			table.insert(GPlayers, Val)
 		end
 	end
-	
+
 	return GPlayers
 end
 
@@ -574,22 +574,22 @@ end
 SLib.GPlayerArgList.Arg_random = function()
 	return {SLib.Roplayers[math.random(1, #SLib.Roplayers)]}
 end
- 
+
 SLib.GPlayer = function(Val) 
 	local GPlayersF = SLib.GPlayerArgList[`Arg`..Val]
-	
+
 	if GPlayersF ~= nil then
 		return GPlayersF()
 	end
-	 
+
 	local GPlayers = {}
-	
+
 	for A_1, A_2 in pairs(SLib.Roplayers) do 
 		if string.sub(string.lower(A_2.Name), 1, #Val) == string.lower(Val) then
 			table.insert(GPlayers, A_2)
 		end
 	end
-	
+
 	return GPlayers
 end
 
@@ -612,7 +612,7 @@ SLib.fireproximitypromptonserv = function(Val, ValB)
 			replicatesignal(Val.ButtonHoldBeganActionReplicated, SLib.LocalPlayer)
 			replicatesignal(Val.ButtonHoldEndedActionReplicated, SLib.LocalPlayer)
 		end
-		
+
 		replicatesignal(Val.TriggeredActionReplicated, SLib.LocalPlayer)
 		replicatesignal(Val.TriggerEndedActionReplicated, SLib.LocalPlayer)
 	end
@@ -636,13 +636,13 @@ SLib.fireproximityprompt = function(Val, ValAmount, ValB)
 		SLib.fireproximitypromptonserv(Val, ValB)
 	end
 end
- 
+
 SLib.fireclickdetectoronserv = function(Val, ValB)
 	if replicatesignal ~= nil and Val.ClassName == `ClickDetector` then
 		replicatesignal(Val.MouseActionReplicated, SLib.LocalPlayer, ValB)
 	end
 end
-   
+
 SLib.fireclickdetectoroncl = function(Val, ValB)
 	if firesignal ~= nil then
 		firesignal(Val.MouseHoverEnter, SLib.LocalPlayer)
@@ -657,25 +657,25 @@ SLib.fireclickdetector = function(Val, ValAmount, ValB)
 		SLib.fireclickdetectoroncl(Val, ValB)
 	end
 end
-     
+
 SLib.fireclickdetectorwithbothmouseinputs = function(Val, ValAmount)
 	if firesignal ~= nil and replicatesignal ~= nil then
 		local ValACD = Val.MaxActivationDistance
 		Val.MaxActivationDistance = math.huge
-		
+
 		firesignal(Val.MouseHoverEnter, SLib.LocalPlayer)
 		replicatesignal(Val.MouseActionReplicated, SLib.LocalPlayer, 5)
-		
+
 		for Index = 1, tonumber(ValAmount) do 
 			firesignal(Val.MouseClick, SLib.LocalPlayer)
 			replicatesignal(Val.MouseActionReplicated, SLib.LocalPlayer, 5)
 			firesignal(Val.RightMouseClick, SLib.LocalPlayer)
 			replicatesignal(Val.MouseActionReplicated, SLib.LocalPlayer, 5)
 		end
-		   
+
 		firesignal(Val.MouseHoverLeave, SLib.LocalPlayer)
 		replicatesignal(Val.MouseActionReplicated, SLib.LocalPlayer, 5)
-		
+
 		Val.MaxActivationDistance = ValACD
 	end
 end
@@ -692,7 +692,7 @@ SLib.CaptureService.CaptureEnded:Connect(function(GCaptureType)
 		Val.Enabled = GeneratedGUIsET[Val]
 	end
 end) 
- 
+
 SLib.NGPlugin = function(GPluginN, GPlugin, GPluginConfig)
 	if isfolder ~= nil and listfiles ~= nil then
 		local GPluginPath = `SLib/GPlugins/`..GPluginN
@@ -729,7 +729,15 @@ SLib.GPluginsLF = function()
 		end
 	end
 end
- 
+  
+SLib.GJSONDecodeFile = function(GPath)	
+	if isfile ~= nil and isfile(GPath) and readfile ~= nil then
+		return SLib.HttpService.JSONDecode(readfile(GPath))
+	end
+	
+	return nil
+end
+
 SLib.GSetGNotify = function(GFunc)
 	SLib.GNotify = GFunc
 end
