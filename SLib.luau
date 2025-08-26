@@ -730,12 +730,16 @@ SLib.GPluginsLF = function()
 	end
 end
   
+SLib.GReadFile = function(GPath)	
+	return isfile ~= nil and isfile(GPath) and readfile ~= nil and readfile(GPath) or nil
+end
+  
 SLib.GJSONDecodeFile = function(GPath)	
-	if isfile ~= nil and isfile(GPath) and readfile ~= nil then
-		return SLib.HttpService.JSONDecode(readfile(GPath))
-	end
-	
-	return nil
+	return isfile ~= nil and isfile(GPath) and readfile ~= nil and SLib.HttpService:JSONDecode(readfile(GPath)) or nil
+end
+ 
+SLib.GJSONEncodeFile = function(GPath)	
+	return isfile ~= nil and isfile(GPath) and readfile ~= nil and SLib.HttpService:JSONEncode(readfile(GPath)) or nil
 end
 
 SLib.GSetGNotify = function(GFunc)
