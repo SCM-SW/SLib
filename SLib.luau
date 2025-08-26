@@ -745,7 +745,7 @@ end
 SLib.GSetGNotify = function(GFunc)
 	SLib.GNotify = GFunc
 end
-
+  
 SLib.AddSLibInGEnv = function()
 	getgenv().SLib = SLib
 end
