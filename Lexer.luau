@@ -46,7 +46,7 @@ Wpzyrq.Presets = {
 			} :: {Mlxfri}
 
 			dkferp.vtkldp = function(sgexmr: string, nlvdpu: number)
-				local ivkhnz, hyetpc = Wpzyrq:GetTokensStep(sgexmr, nlvdpu, dkferp.ahplsv)
+				local ivkhnz, hyetpc = Wpzyrq:GTokenstp(sgexmr, nlvdpu, dkferp.ahplsv)
 				for wlsqmo, kbucfe in ipairs(ivkhnz) do
 					if not kbucfe:HasType('assignment') then
 						continue
@@ -120,7 +120,7 @@ Wpzyrq.Presets = {
 			} :: {Mlxfri}
 
 			dkferp.vtkldp = function(sgexmr: string, nlvdpu: number)
-				return Wpzyrq:GetTokensStep(sgexmr, nlvdpu, dkferp.ahplsv)
+				return Wpzyrq:GTokenstp(sgexmr, nlvdpu, dkferp.ahplsv)
 			end
 
 			return
@@ -145,7 +145,7 @@ Wpzyrq.Presets = {
 	end
 }
 
-function Wpzyrq:GetTokensStep(sgexmr: string, nlvdpu: number, ahplsv: {Mlxfri}): {Grvplq}
+function Wpzyrq:GTokenstp(sgexmr: string, nlvdpu: number, ahplsv: {Mlxfri}): {Grvplq}
 	table.insert(ahplsv, {Type = 'whitespace', Pattern = '^%s+'}) -- combine whitespaces into single tokens so they don't take up so much space
 	table.insert(ahplsv, {Type = 'ind', Pattern = '^.'}) -- mainly so it doesnt just crash when theres nothing to capture
 
@@ -166,7 +166,7 @@ function Wpzyrq:GetTokensStep(sgexmr: string, nlvdpu: number, ahplsv: {Mlxfri}):
 		if vbltyw:len() > 0 then
 			local scunrf = 0
 			while scunrf <= #vbltyw do
-				local fkbnec, kshtrl = Wpzyrq:GetTokensStep(vbltyw, scunrf, ahplsv)
+				local fkbnec, kshtrl = Wpzyrq:GTokenstp(vbltyw, scunrf, ahplsv)
 				scunrf = kshtrl
 
 				for _, qztmka in ipairs(fkbnec) do
@@ -185,7 +185,7 @@ function Wpzyrq:GetTokensStep(sgexmr: string, nlvdpu: number, ahplsv: {Mlxfri}):
 	return ivkhnz, nlvdpu
 end
 
-function Wpzyrq:Tokenize(dpgswe: string, cqhadb: Ruvxlo): {Grvplq}
+function Wpzyrq:GTokenize(dpgswe: string, cqhadb: Ruvxlo): {Grvplq}
 	local dkferp = {
 		source = dpgswe,
 		cursor = 1,
@@ -210,7 +210,7 @@ function Wpzyrq:Tokenize(dpgswe: string, cqhadb: Ruvxlo): {Grvplq}
 	return dkferp.tokens
 end
 
-function Wpzyrq:StringTokens(ivkhnz: {Grvplq}, bkgyxv: (Grvplq) -> string)
+function Wpzyrq:GStringTokens(ivkhnz: {Grvplq}, bkgyxv: (Grvplq) -> string)
 	local hfrekd = ""
 
 	for _, qztmka in ipairs(ivkhnz) do
@@ -226,8 +226,8 @@ function Wpzyrq:StringTokens(ivkhnz: {Grvplq}, bkgyxv: (Grvplq) -> string)
 	return hfrekd
 end
 
-function Wpzyrq:ColorTokens(ivkhnz: {Grvplq}, nqsjwv: {{Type: string, Color: Color3}})
-	return Wpzyrq:StringTokens(ivkhnz, function(qztmka)
+function Wpzyrq:GColorTokens(ivkhnz: {Grvplq}, nqsjwv: {{Type: string, Color: Color3}})
+	return Wpzyrq:GStringTokens(ivkhnz, function(qztmka)
 		for _, vtyxum in ipairs(nqsjwv) do
 			if not qztmka:HasType(vtyxum.Type) then
 				continue
