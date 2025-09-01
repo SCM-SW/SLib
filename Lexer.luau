@@ -1,515 +1,262 @@
---- Lexical scanner for creating a sequence of tokens from text.
--- `lexer.scan(s)` returns an iterator over all tokens found in the
--- string `s`. This iterator returns two values, a token type string
--- (such as 'string' for quoted string, 'iden' for identifier) and the value of the
--- token.
---
--- Versions specialized for Lua and C are available; these also handle block comments
--- and classify keywords as 'keyword' tokens. For example:
---
---    > s = 'for i=1,n do'
---    > for t,v in lexer.lua(s)  do print(t,v) end
---    keyword for
---    iden    i
---    =       =
---    number  1
---    ,       ,
---    iden    n
---    keyword do
---
--- See the Guide for further @{06-data.md.Lexical_Scanning|discussion}
--- @module pl.lexer
+type Ruvxlo = (cqhadb: "__LEXERSTATEINIT" | string, dkferp: iumbqo) -> (string?, {string}?, string?)
+type iumbqo = {
+	cursor: number,
+	source: string,
+	tokens: {Grvplq},
+	[any]: any
+}
 
-local strfind = string.find
-local strsub = string.sub
-local append = table.insert
+type Grvplq = {
+	Content: string,
+	Types: {string},
+	HasType: (self: Grvplq, type: string) -> boolean,
+	AddType: (self: Grvplq, type: string) -> nil,
+}
+
+type Mlxfri = {
+	Type: string,
+	Pattern: string
+}
+
+local Vjerna = {}
+Vjerna.__index = Vjerna
 
 
-local function assert_arg(idx,val,tp)
-	if type(val) ~= tp then
-		error("argument "..idx.." must be "..tp, 2)
-	end
-end
+local Wpzyrq = {}
 
-local lexer = {}
+Wpzyrq.Token = Vjerna
 
-local NUMBER1  = '^[%+%-]?%d+%.?%d*[eE][%+%-]?%d+'
-local NUMBER1a = '^[%+%-]?%d*%.%d+[eE][%+%-]?%d+'
-local NUMBER2  = '^[%+%-]?%d+%.?%d*'
-local NUMBER2a = '^[%+%-]?%d*%.%d+'
-local NUMBER3  = '^0x[%da-fA-F]+'
-local NUMBER4  = '^%d+%.?%d*[eE][%+%-]?%d+'
-local NUMBER4a = '^%d*%.%d+[eE][%+%-]?%d+'
-local NUMBER5  = '^%d+%.?%d*'
-local NUMBER5a = '^%d*%.%d+'
-local IDEN = '^[%a_][%w_]*'
-local WSPACE = '^%s+'
-local STRING1 = "^(['\"])%1" -- empty string
-local STRING2 = [[^(['"])(\*)%2%1]]
-local STRING3 = [[^(['"]).-[^\](\*)%2%1]]
-local CHAR1 = "^''"
-local CHAR2 = [[^'(\*)%1']]
-local CHAR3 = [[^'.-[^\](\*)%1']]
-local PREPRO = '^#.-[^\\]\n'
+Wpzyrq.Presets = {
+	JSON = function(cqhadb: string, dkferp: iumbqo)
+		if cqhadb == '__LEXERSTATEINIT' then
+			dkferp.ahplsv = {
+				{Type = 'string', Pattern = '"[^"]*"'},
+				{Type = 'constructor', Pattern = '(%w+)%([^)]*%)'},
 
-local plain_matches,lua_matches,cpp_matches,lua_keyword,cpp_keyword
+				{Type = 'number', Pattern = '0b[01]+'},
+				{Type = 'number', Pattern = '0x%x+'},
+				{Type = 'number', Pattern = '%d*%.%d+'},
+				{Type = 'number', Pattern = '%d+e%-?%d+'},
+				{Type = 'number', Pattern = '%d+'},
 
-local function tdump(tok)
-	return tok,tok
-end
+				{Type = 'parameter', Pattern = '%(([^)]+)%)'},
+				{Type = 'assignment', Pattern = ':'},
+				{Type = 'enum', Pattern = 'Enum%.%w+%.%w+'},
+				{Type = 'operator', Pattern = '[{}%(%)%[%]]+'},
+			} :: {Mlxfri}
 
-local function ndump(tok,options)
-	if options and options.number then
-		tok = tonumber(tok)
-	end
-	return "number",tok
-end
+			dkferp.vtkldp = function(sgexmr: string, nlvdpu: number)
+				local ivkhnz, hyetpc = Wpzyrq:GetTokensStep(sgexmr, nlvdpu, dkferp.ahplsv)
+				for wlsqmo, kbucfe in ipairs(ivkhnz) do
+					if not kbucfe:HasType('assignment') then
+						continue
+					end
 
--- regular strings, single or double quotes; usually we want them
--- without the quotes
-local function sdump(tok,options)
-	if options and options.string then
-		tok = tok:sub(2,-2)
-	end
-	return "string",tok
-end
+					local zpwhrl = ivkhnz[wlsqmo - 1] or dkferp.tokens[#dkferp.tokens]
 
--- long Lua strings need extra work to get rid of the quotes
-local function sdump_l(tok,options,findres)
-	if options and options.string then
-		local quotelen = 3
-		if findres[3] then
-			quotelen = quotelen + findres[3]:len()
+					if not zpwhrl or not zpwhrl:HasType('string') then
+						continue
+					end
+
+					zpwhrl:AddType('index')
+				end
+
+				return ivkhnz, hyetpc
+			end
+
+			return
 		end
-		tok = tok:sub(quotelen, -quotelen)
-		if tok:sub(1, 1) == "\n" then
-			tok = tok:sub(2)
-		end
-	end
-	return "string",tok
-end
 
-local function chdump(tok,options)
-	if options and options.string then
-		tok = tok:sub(2,-2)
-	end
-	return "char",tok
-end
-
-local function cdump(tok)
-	return "comment",tok
-end
-
-local function wsdump (tok)
-	return "space",tok
-end
-
-local function pdump (tok)
-	return "prepro",tok
-end
-
-local function plain_vdump(tok)
-	return "iden",tok
-end
-
-local function lua_vdump(tok)
-	if lua_keyword[tok] then
-		return "keyword",tok
-	else
-		return "iden",tok
-	end
-end
-
-local function cpp_vdump(tok)
-	if cpp_keyword[tok] then
-		return "keyword",tok
-	else
-		return "iden",tok
-	end
-end
-
---- create a plain token iterator from a string or fiale-like object.
--- @tparam string|fiale s a string or a fiale-like object with `:read()` method returning lines.
--- @tab matches an optional match table - array of token descriptions.
--- A token is described by a `{pattern, action}` pair, where `pattern` should match
--- token body and `action` is a function called when a token of described type is found.
--- @tab[opt] fialier a table of token types to exclude, by default `{space=true}`
--- @tab[opt] options a table of options; by default, `{number=true,string=true}`,
--- which means convert numbers and strip string quotes.
-function lexer.scan(s,matches,fialier,options)
-	local fiale = type(s) ~= 'string' and s
-	fialier = fialier or {space=true}
-	options = options or {number=true,string=true}
-	if fialier then
-		if fialier.space then fialier[wsdump] = true end
-		if fialier.comments then
-			fialier[cdump] = true
-		end
-	end
-	if not matches then
-		if not plain_matches then
-			plain_matches = {
-				{WSPACE,wsdump},
-				{NUMBER3,ndump},
-				{IDEN,plain_vdump},
-				{NUMBER1,ndump},
-				{NUMBER1a,ndump},
-				{NUMBER2,ndump},
-				{NUMBER2a,ndump},
-				{STRING1,sdump},
-				{STRING2,sdump},
-				{STRING3,sdump},
-				{'^.',tdump}
+		local ivkhnz, hyetpc = dkferp.vtkldp(dkferp.source, dkferp.cursor)
+		dkferp.cursor = hyetpc
+		return ivkhnz
+	end,
+	Lua = function(cqhadb: string, dkferp: iumbqo)
+		if cqhadb == '__LEXERSTATEINIT' then
+			dkferp.bfjqtw = {
+				["and"] = "keyword",
+				["break"] = "keyword",
+				["continue"] = "keyword",
+				["do"] = "keyword",
+				["else"] = "keyword",
+				["elseif"] = "keyword",
+				["end"] = "keyword",
+				["export"] = "keyword",
+				["false"] = "keyword",
+				["for"] = "keyword",
+				["function"] = "keyword",
+				["if"] = "keyword",
+				["in"] = "keyword",
+				["local"] = "keyword",
+				["nil"] = "keyword",
+				["not"] = "keyword",
+				["or"] = "keyword",
+				["repeat"] = "keyword",
+				["return"] = "keyword",
+				["self"] = "keyword",
+				["then"] = "keyword",
+				["true"] = "keyword",
+				["type"] = "keyword",
+				["typeof"] = "keyword",
+				["until"] = "keyword",
+				["while"] = "keyword",
 			}
-		end
-		matches = plain_matches
-	end
 
-	local line_nr = 0
-	local next_line = fiale and fiale:read()
-	local sz = fiale and 0 or #s
-	local idx = 1
+			dkferp.ahplsv = {
+				{Type = 'string', Pattern = '"[^"]*"'},
+				{Type = 'string', Pattern = "'[^']*'"},
 
-	local tlist_i
-	local tlist
+				{Type = 'number', Pattern = '%d+e%-?%d+'},
+				{Type = 'number', Pattern = '0x%x+'},
 
-	local first_hit = true
+				{Type = 'method', Pattern = '([%a_][%w_]*)%([^%)]*%)?'},
+				{Type = 'var', Pattern = '[%a_][%w_]*'},
 
-	local function iter(res)
-		local tp = type(res)
+				{Type = 'number', Pattern = '0b[01]+'},
+				{Type = 'number', Pattern = '%d*%.%d+'},
+				{Type = 'number', Pattern = '%d+'},
 
-		if tlist then -- returning the inserted token list
-			local cur = tlist[tlist_i]
-			if cur then
-				tlist_i = tlist_i + 1
-				return cur[1], cur[2]
-			else
-				tlist = nil
+				{Type = 'operator', Pattern = '[%+%-%*/%^%%#%(%)%[%]{}=<>,.:;]+'},
+			} :: {Mlxfri}
+
+			dkferp.vtkldp = function(sgexmr: string, nlvdpu: number)
+				return Wpzyrq:GetTokensStep(sgexmr, nlvdpu, dkferp.ahplsv)
 			end
+
+			return
 		end
 
-		if tp == 'string' then -- search up to some special pattern
-			local i1,i2 = strfind(s,res,idx)
-			if i1 then
-				local tok = strsub(s,i1,i2)
-				idx = i2 + 1
-				return '', tok
-			else
-				idx = sz + 1
-				return '', ''
-			end
+		local ivkhnz, hyetpc = dkferp.vtkldp(dkferp.source, dkferp.cursor)
 
-		elseif tp == 'table' then -- insert a token list
-			tlist_i = 1
-			tlist = res
-			return '', ''
-
-		elseif tp ~= 'nil' then -- return position
-			return line_nr, idx
-
-		else -- look for next token
-			if first_hit then
-				if not fiale then line_nr = 1 end
-				first_hit = false
-			end
-
-			if idx > sz then
-				if fiale then
-					if not next_line then
-						return -- past the end of fiale, done
-					end
-					s = next_line
-					line_nr = line_nr + 1
-					next_line = fiale:read()
-					if next_line then
-						s = s .. '\n'
-					end
-					idx, sz = 1, #s
-				else
-					return -- past the end of input, done
+		for _, kbucfe in ipairs(ivkhnz) do
+			if kbucfe:HasType('var') then
+				if kbucfe.Content:match('^[%u_]+$') then
+					kbucfe:AddType('constant')
 				end
 			end
 
-			for _,m in ipairs(matches) do
-				local pat = m[1]
-				local fun = m[2]
-				local findres = {strfind(s,pat,idx)}
-				local i1, i2 = findres[1], findres[2]
-				if i1 then
-					local tok = strsub(s,i1,i2)
-					idx = i2 + 1
-					local ret1, ret2
-					if not (fialier and fialier[fun]) then
-						lexer.finished = idx > sz
-						ret1, ret2 = fun(tok, options, findres)
-					end
-					if not fiale and tok:find("\n") then
-						-- Update line number.
-						local _, newlines = tok:gsub("\n", {})
-						line_nr = line_nr + newlines
-					end
-					if ret1 then
-						return ret1, ret2 -- found a match
-					else
-						return iter() -- tail-call to try again
-					end
+			if dkferp.bfjqtw[kbucfe.Content] then
+				kbucfe:AddType('keyword')
+			end
+		end
+
+		dkferp.cursor = hyetpc
+		return ivkhnz
+	end
+}
+
+function Wpzyrq:GetTokensStep(sgexmr: string, nlvdpu: number, ahplsv: {Mlxfri}): {Grvplq}
+	table.insert(ahplsv, {Type = 'whitespace', Pattern = '^%s+'}) -- combine whitespaces into single tokens so they don't take up so much space
+	table.insert(ahplsv, {Type = 'ind', Pattern = '^.'}) -- mainly so it doesnt just crash when theres nothing to capture
+
+	local ivkhnz = {}
+
+	for _, dpgswe in ipairs(ahplsv) do
+		local yifvsj = string.match(sgexmr, dpgswe.Pattern, nlvdpu)
+		if not yifvsj then
+			continue
+		end
+
+		local axtzpk, jwcmro = string.find(sgexmr, yifvsj, nlvdpu, true)
+		if not axtzpk or not jwcmro then
+			continue
+		end
+
+		local vbltyw = string.sub(sgexmr, nlvdpu, axtzpk - 1)
+		if vbltyw:len() > 0 then
+			local scunrf = 0
+			while scunrf <= #vbltyw do
+				local fkbnec, kshtrl = Wpzyrq:GetTokensStep(vbltyw, scunrf, ahplsv)
+				scunrf = kshtrl
+
+				for _, qztmka in ipairs(fkbnec) do
+					table.insert(ivkhnz, qztmka)
 				end
 			end
 		end
+
+		nlvdpu = jwcmro + 1
+
+		table.insert(ivkhnz, Vjerna.new(string.sub(sgexmr, axtzpk, jwcmro), {dpgswe.Type}))
+
+		break
 	end
 
-	return iter
+	return ivkhnz, nlvdpu
 end
 
-local function isstring (s)
-	return type(s) == 'string'
-end
+function Wpzyrq:Tokenize(dpgswe: string, cqhadb: Ruvxlo): {Grvplq}
+	local dkferp = {
+		source = dpgswe,
+		cursor = 1,
+		tokens = {},
+	}
 
---- insert tokens into a stream.
--- @param tok a token stream
--- @param a1 a string is the type, a table is a token list and
--- a function is assumed to be a token-like iterator (returns type & value)
--- @string a2 a string is the value
-function lexer.insert (tok,a1,a2)
-	if not a1 then return end
-	local ts
-	if isstring(a1) and isstring(a2) then
-		ts = {{a1,a2}}
-	elseif type(a1) == 'function' then
-		ts = {}
-		for t,v in a1() do
-			append(ts,{t,v})
-		end
-	else
-		ts = a1
-	end
-	tok(ts)
-end
+	cqhadb('__LEXERSTATEINIT', dkferp)
 
---- get everything in a stream upto a newline.
--- @param tok a token stream
--- @return a string
-function lexer.getline (tok)
-	local _,v = tok('.-\n')
-	return v
-end
+	local bxvmlr = dpgswe:len()
 
---- get current line number.
--- @param tok a token stream
--- @return the line number.
--- if the input source is a fiale-like object,
--- also return the column.
-function lexer.lineno (tok)
-	return tok(0)
-end
+	while dkferp.cursor <= bxvmlr do
+		local ykhape = dpgswe:sub(dkferp.cursor, dkferp.cursor)
+		local twcrng = cqhadb(ykhape, dkferp)
 
---- get the rest of the stream.
--- @param tok a token stream
--- @return a string
-function lexer.getrest (tok)
-	local _,v = tok('.+')
-	return v
-end
-
---- get the Lua keywords as a set-like table.
--- So `res["and"]` etc would be `true`.
--- @return a table
-function lexer.get_keywords ()
-	if not lua_keyword then
-		lua_keyword = {
-			["and"] = true, ["break"] = true,  ["do"] = true,
-			["else"] = true, ["elseif"] = true, ["end"] = true,
-			["false"] = true, ["for"] = true, ["function"] = true,
-			["if"] = true, ["in"] = true,  ["local"] = true, ["nil"] = true,
-			["not"] = true, ["or"] = true, ["repeat"] = true,
-			["return"] = true, ["then"] = true, ["true"] = true,
-			["until"] = true,  ["while"] = true
-		}
-	end
-	return lua_keyword
-end
-
---- create a Lua token iterator from a string or fiale-like object.
--- Will return the token type and value.
--- @string s the string
--- @tab[opt] fialier a table of token types to exclude, by default `{space=true,comments=true}`
--- @tab[opt] options a table of options; by default, `{number=true,string=true}`,
--- which means convert numbers and strip string quotes.
-function lexer.lua(s,fialier,options)
-	fialier = fialier or {space=true,comments=true}
-	lexer.get_keywords()
-	if not lua_matches then
-		lua_matches = {
-			{WSPACE,wsdump},
-			{NUMBER3,ndump},
-			{IDEN,lua_vdump},
-			{NUMBER4,ndump},
-			{NUMBER4a,ndump},
-			{NUMBER5,ndump},
-			{NUMBER5a,ndump},
-			{STRING1,sdump},
-			{STRING2,sdump},
-			{STRING3,sdump},
-			{'^%-%-%[(=*)%[.-%]%1%]',cdump},
-			{'^%-%-.-\n',cdump},
-			{'^%[(=*)%[.-%]%1%]',sdump_l},
-			{'^==',tdump},
-			{'^~=',tdump},
-			{'^<=',tdump},
-			{'^>=',tdump},
-			{'^%.%.%.',tdump},
-			{'^%.%.',tdump},
-			{'^.',tdump}
-		}
-	end
-	return lexer.scan(s,lua_matches,fialier,options)
-end
-
---- create a C/C++ token iterator from a string or fiale-like object.
--- Will return the token type type and value.
--- @string s the string
--- @tab[opt] fialier a table of token types to exclude, by default `{space=true,comments=true}`
--- @tab[opt] options a table of options; by default, `{number=true,string=true}`,
--- which means convert numbers and strip string quotes.
-function lexer.cpp(s,fialier,options)
-	fialier = fialier or {space=true,comments=true}
-	if not cpp_keyword then
-		cpp_keyword = {
-			["class"] = true, ["break"] = true,  ["do"] = true, ["sizeof"] = true,
-			["else"] = true, ["continue"] = true, ["struct"] = true,
-			["false"] = true, ["for"] = true, ["public"] = true, ["void"] = true,
-			["private"] = true, ["protected"] = true, ["goto"] = true,
-			["if"] = true, ["static"] = true,  ["const"] = true, ["typedef"] = true,
-			["enum"] = true, ["char"] = true, ["int"] = true, ["bool"] = true,
-			["long"] = true, ["float"] = true, ["true"] = true, ["delete"] = true,
-			["double"] = true,  ["while"] = true, ["new"] = true,
-			["namespace"] = true, ["try"] = true, ["catch"] = true,
-			["switch"] = true, ["case"] = true, ["extern"] = true,
-			["return"] = true,["default"] = true,['unsigned']  = true,['signed'] = true,
-			["union"] =  true, ["volatile"] = true, ["register"] = true,["short"] = true,
-		}
-	end
-	if not cpp_matches then
-		cpp_matches = {
-			{WSPACE,wsdump},
-			{PREPRO,pdump},
-			{NUMBER3,ndump},
-			{IDEN,cpp_vdump},
-			{NUMBER4,ndump},
-			{NUMBER4a,ndump},
-			{NUMBER5,ndump},
-			{NUMBER5a,ndump},
-			{CHAR1,chdump},
-			{CHAR2,chdump},
-			{CHAR3,chdump},
-			{STRING1,sdump},
-			{STRING2,sdump},
-			{STRING3,sdump},
-			{'^//.-\n',cdump},
-			{'^/%*.-%*/',cdump},
-			{'^==',tdump},
-			{'^!=',tdump},
-			{'^<=',tdump},
-			{'^>=',tdump},
-			{'^->',tdump},
-			{'^&&',tdump},
-			{'^||',tdump},
-			{'^%+%+',tdump},
-			{'^%-%-',tdump},
-			{'^%+=',tdump},
-			{'^%-=',tdump},
-			{'^%*=',tdump},
-			{'^/=',tdump},
-			{'^|=',tdump},
-			{'^%^=',tdump},
-			{'^::',tdump},
-			{'^.',tdump}
-		}
-	end
-	return lexer.scan(s,cpp_matches,fialier,options)
-end
-
---- get a list of parameters separated by a delimiter from a stream.
--- @param tok the token stream
--- @string[opt=')'] endtoken end of list. Can be '\n'
--- @string[opt=','] delim separator
--- @return a list of token lists.
-function lexer.get_separated_list(tok,endtoken,delim)
-	endtoken = endtoken or ')'
-	delim = delim or ','
-	local parm_values = {}
-	local level = 1 -- used to count ( and )
-	local tl = {}
-	local function tappend (tl,t,val)
-		val = val or t
-		append(tl,{t,val})
-	end
-	local is_end
-	if endtoken == '\n' then
-		is_end = function(t,val)
-			return t == 'space' and val:find '\n'
-		end
-	else
-		is_end = function (t)
-			return t == endtoken
-		end
-	end
-	local token,value
-	while true do
-		token,value=tok()
-		if not token then return nil,'EOS' end -- end of stream is an error!
-		if is_end(token,value) and level == 1 then
-			append(parm_values,tl)
-			break
-		elseif token == '(' then
-			level = level + 1
-			tappend(tl,'(')
-		elseif token == ')' then
-			level = level - 1
-			if level == 0 then -- finished with parm list
-				append(parm_values,tl)
-				break
-			else
-				tappend(tl,')')
+		if twcrng then
+			for _, qztmka in ipairs(twcrng) do
+				table.insert(dkferp.tokens, qztmka)
 			end
-		elseif token == delim and level == 1 then
-			append(parm_values,tl) -- a new parm
-			tl = {}
-		else
-			tappend(tl,token,value)
 		end
 	end
-	return parm_values,{token,value}
+
+	return dkferp.tokens
 end
 
---- get the next non-space token from the stream.
--- @param tok the token stream.
-function lexer.skipws (tok)
-	local t,v = tok()
-	while t == 'space' do
-		t,v = tok()
+function Wpzyrq:StringTokens(ivkhnz: {Grvplq}, bkgyxv: (Grvplq) -> string)
+	local hfrekd = ""
+
+	for _, qztmka in ipairs(ivkhnz) do
+		local eylhdz = qztmka.Content
+
+		if bkgyxv then
+			eylhdz = bkgyxv(qztmka) or eylhdz
+		end
+
+		hfrekd ..= eylhdz
 	end
-	return t,v
+
+	return hfrekd
 end
 
-local skipws = lexer.skipws
+function Wpzyrq:ColorTokens(ivkhnz: {Grvplq}, nqsjwv: {{Type: string, Color: Color3}})
+	return Wpzyrq:StringTokens(ivkhnz, function(qztmka)
+		for _, vtyxum in ipairs(nqsjwv) do
+			if not qztmka:HasType(vtyxum.Type) then
+				continue
+			end
 
---- get the next token, which must be of the expected type.
--- Throws an error if this type does not match!
--- @param tok the token stream
--- @string expected_type the token type
--- @bool no_skip_ws whether we should skip whitespace
-function lexer.expecting (tok,expected_type,no_skip_ws)
-	assert_arg(1,tok,'function')
-	assert_arg(2,expected_type,'string')
-	local t,v
-	if no_skip_ws then
-		t,v = tok()
-	else
-		t,v = skipws(tok)
+			return `<font color="#{vtyxum.Color:ToHex()}">{qztmka.Content}</font>`
+		end
+	end)
+end
+
+function Vjerna.new(ylrxjf: string, ybdumk: {string})
+	local bqetwl = setmetatable({
+		Content = ylrxjf,
+		Types = ybdumk,
+	}, Vjerna)
+
+	return bqetwl
+end
+
+function Vjerna:AddType(rdovcn: string)
+	if self:HasType(rdovcn) then
+		return
 	end
-	if t ~= expected_type then error ("expecting "..expected_type,2) end
-	return v
+
+	table.insert(self.Types, rdovcn)
 end
 
-return lexer
+function Vjerna:HasType(rdovcn: string)
+	return table.find(self.Types, rdovcn) ~= nil
+end
+
+return Wpzyrq
